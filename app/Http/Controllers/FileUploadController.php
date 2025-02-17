@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\FileUploadLog;  // To store the log of uploads
+use App\Models\FileUploadLog; // Import the model
 
 class FileUploadController extends Controller
 {
@@ -15,10 +15,10 @@ class FileUploadController extends Controller
             'file_type' => 'required|string',
         ]);
 
-        // Store the file in the storage
+        // Store the file in storage
         $file = $request->file('file');
-        $fileName = $file->getClientOriginalName();  // Get original name of the file
-        $file->storeAs('uploads', $fileName);  // Store the file
+        $fileName = $file->getClientOriginalName();  // Get the original filename
+        $file->storeAs('uploads', $fileName);  // Store the file in the uploads directory
 
         // Log the file upload in the database
         FileUploadLog::create([
@@ -28,6 +28,6 @@ class FileUploadController extends Controller
         ]);
 
         // Return a success response
-        return response()->json(['message' => 'File uploaded successfully']);
+        return response()->json(['success' => true, 'message' => 'File uploaded successfully']);
     }
 }

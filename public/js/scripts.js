@@ -9,11 +9,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const historyList = document.getElementById("historyList");
     const historyOkButton = document.getElementById("historyOkButton");
     const clearHistoryButton = document.getElementById("clearHistoryButton");
-    const fileTypeSelect = document.getElementById("fileType"); // Reference to the dropdown menu
+    const fileTypeSelect = document.getElementById("fileType");
 
     console.log("Script is running");
 
-    // Handle multiple file uploads
+    // Handle file input change
     fileInput.addEventListener("change", function () {
         if (this.files.length > 0) {
             let fileNames = Array.from(this.files).map(file => file.name).join(", ");
@@ -25,29 +25,52 @@ document.addEventListener("DOMContentLoaded", function () {
     form.addEventListener("submit", function (event) {
         event.preventDefault(); // Prevent default form submission
 
-        let submissionHistory = JSON.parse(localStorage.getItem("submissionHistory")) || [];
-        let newUploads = [];
-        const fileType = fileTypeSelect.value; // Get selected file type
-
-        if (fileInput.files.length > 0) {
-            Array.from(fileInput.files).forEach(file => {
-                newUploads.push({
-                    fileName: file.name,
-                    fileType: fileType, // Include the selected file type
-                    timestamp: new Date().toLocaleString()
-                });
-                console.log("Upload success");
-            });
-        } else {
+        if (fileInput.files.length === 0) {
             alert("Please upload at least one file before submitting.");
-            console.log("Upload unsuccessful");
+            console.log("Upload unsuccessful - no file selected.");
             return;
         }
 
-        submissionHistory = submissionHistory.concat(newUploads);
-        localStorage.setItem("submissionHistory", JSON.stringify(submissionHistory));
+        const fileType = fileTypeSelect.value;
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]); // Send only one file
+        formData.append("file_type", fileType);
 
-        confirmationModal.style.display = "flex";
+        // CSRF Token
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+
+        fetch("/upload-file", {
+            method: "POST",
+            body: formData,
+            headers: {
+                "X-CSRF-TOKEN": csrfToken, // CSRF protection for Laravel
+            },
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    console.log("Upload success:", data.message);
+
+                    // Save to localStorage
+                    let submissionHistory = JSON.parse(localStorage.getItem("submissionHistory")) || [];
+                    submissionHistory.push({
+                        fileName: fileInput.files[0].name,
+                        fileType: fileType,
+                        timestamp: new Date().toLocaleString(),
+                    });
+                    localStorage.setItem("submissionHistory", JSON.stringify(submissionHistory));
+
+                    // Show confirmation modal
+                    confirmationModal.style.display = "flex";
+                } else {
+                    alert("Error while uploading file.");
+                    console.error("Upload failed:", data);
+                }
+            })
+            .catch((error) => {
+                console.error("Error uploading file:", error);
+                alert("Error uploading file. Please try again.");
+            });
     });
 
     // Modal "OK" button event
@@ -63,7 +86,7 @@ document.addEventListener("DOMContentLoaded", function () {
         historyList.innerHTML = "";
 
         if (submissionHistory.length > 0) {
-            submissionHistory.forEach(entry => {
+            submissionHistory.forEach((entry) => {
                 const listItem = document.createElement("li");
                 listItem.textContent = `${entry.fileName} (Type: ${entry.fileType}) - ${entry.timestamp}`;
                 historyList.appendChild(listItem);
